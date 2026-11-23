@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Project 1 — Real-Time CDC Lakehouse v1.0 (documentation and evidence stage).
+Project 1 — Real-Time CDC Lakehouse v1.0 (released).
 
 ## Verified behaviour (evidence: docs/VERIFICATION.md)
 
@@ -11,6 +11,7 @@ Project 1 — Real-Time CDC Lakehouse v1.0 (documentation and evidence stage).
 - Restart does not re-apply messages.
 - Forced replay from offset 0 skips all 10 already applied messages.
 - Rebuild procedure (rename DuckDB file + rewind consumer group) restores state from Kafka history.
+- Clean install from GitHub with only the README steps: 13 tests pass, seed row reaches DuckDB.
 
 ## Decisions
 
@@ -26,4 +27,4 @@ See the "Known limitations" section in README.md.
 
 ## Next step
 
-Confirm the README setup steps from a clean environment, then tag v1.0 with release notes.
+Project 2 — Order Analytics Platform (dbt): define the business questions and the grain of each model.

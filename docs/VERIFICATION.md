@@ -85,9 +85,26 @@ Skipping already applied offset topic=dbserver1.public.orders partition=0 offset
 
 State after stopping the consumer was identical to section 3 (same three rows, `last_applied_offset = 9`, Parquet equal to DuckDB).
 
-## Not verified in this run
+## 6. Clean install from GitHub
 
-- Connector registration from a clean environment (the connector was already registered from an earlier session).
+The repository was cloned into a new folder (`cdc-clean-test`), so Docker Compose created new containers and empty volumes. Only the README steps were used:
+
+```text
+git clone https://github.com/tutarzeliha-ctrl/realtime-cdc-lakehouse.git cdc-clean-test
+python -m venv venv; .\venv\Scripts\Activate.ps1
+pip install -r requirements.txt     -> kafka-python-ng 2.2.3, duckdb 0.10.0, pyarrow 15.0.0, pytest 8.0.0
+pytest -v                           -> 13 passed in 1.24s
+docker compose up -d
+(connector registered with curl.exe as in the README)
+python .\lakehouse_consumer.py
+Successfully joined group lakehouse-cdc-consumer-v1 with generation 1
+Committed Kafka offset dbserver1.public.orders[0]->1 (last_applied_offset=0) and refreshed Parquet snapshot.
+```
+
+The seed row from `init.sql` reached DuckDB through Debezium's initial snapshot.
+
+## Not verified
+
 - A Parquet export failure in the live system (covered only by a unit test).
 - Multiple partitions or multiple consumer instances.
 - Behaviour after a power loss or a Docker volume reset.
