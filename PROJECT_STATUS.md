@@ -4,6 +4,8 @@
 
 Project 1 — Real-Time CDC Lakehouse v1.0 (released).
 
+Project 2 — Order Analytics (dbt), milestone 1: `stg_orders` and `fct_orders` (one row per order, current state) on top of the Parquet snapshot. `dbt build` passes on the bundled sample data; run against the live snapshot not yet done.
+
 ## Verified behaviour (evidence: docs/VERIFICATION.md)
 
 - 13 unit / failure-scenario tests pass on Windows, Python 3.12.0.
@@ -27,4 +29,4 @@ See the "Known limitations" section in README.md.
 
 ## Next step
 
-Project 2 — Order Analytics Platform (dbt): define the business questions and the grain of each model.
+Run `dbt build` against the live `orders_snapshot.parquet` on Windows, then milestone 2: capture daily order status with a dbt snapshot.

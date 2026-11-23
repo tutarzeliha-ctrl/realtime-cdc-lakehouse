@@ -14,3 +14,11 @@ __pycache__/
 *.parquet
 *.parquet.tmp
 data/
+
+# dbt (analytics/)
+analytics/target/
+analytics/dbt_packages/
+analytics/logs/
+analytics/venv/
+analytics/.user.yml
+!analytics/sample_data/*.parquet

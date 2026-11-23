@@ -1,0 +1,25 @@
+sources:
+  - name: cdc
+    description: Output published by the CDC consumer in Project 1.
+    tables:
+      - name: orders_snapshot
+        description: >
+          Current state of every order, one row per order_id. Rewritten atomically by the
+          consumer after each applied change. It holds no history: an order that changed
+          from CREATED to PAID only shows PAID.
+        config:
+          external_location: "read_parquet('{{ var(\"orders_snapshot_path\") }}')"
+        columns:
+          - name: order_id
+          - name: customer_name
+          - name: amount
+            description: DECIMAL(18,3), decoded from Debezium precise decimals.
+          - name: status
+            description: Source status. Soft-deleted rows have status = 'DELETED'.
+          - name: created_at
+            description: >
+              Text. ISO-8601 from PostgreSQL, or epoch milliseconds when the consumer received
+              a delete for an order it had never seen.
+          - name: updated_at
+            description: Text, epoch milliseconds of the last change event (Debezium ts_ms).
+          - name: is_deleted

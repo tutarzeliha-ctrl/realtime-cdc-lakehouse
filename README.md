@@ -62,9 +62,15 @@ realtime-cdc-lakehouse/
 ├── test_lakehouse_consumer.py  # Unit and failure-scenario tests (pytest)
 ├── check_kafka.py              # Debug helper: prints the first 10 topic messages
 ├── requirements.txt
+├── analytics/                  # dbt project on top of the Parquet snapshot (see analytics/README.md)
 ├── docs/VERIFICATION.md        # Live verification record
+├── docs/METRICS.md             # Business definitions for order status and metrics
 └── PROJECT_STATUS.md
 ```
+
+## Analytics layer
+
+The `analytics/` folder contains a dbt project (dbt-duckdb) that reads `orders_snapshot.parquet` and builds `fct_orders`: one row per order with its business status (pending, successful, cancelled). It has its own virtual environment and its own DuckDB file, so it can run while the consumer is running. Setup and tests: [analytics/README.md](analytics/README.md).
 
 ## Requirements
 

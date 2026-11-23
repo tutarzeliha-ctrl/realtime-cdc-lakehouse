@@ -1,0 +1,9 @@
+order_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # Separate database file: dbt never opens the consumer's lakehouse.duckdb,
+      # so both can run at the same time.
+      path: analytics.duckdb
+      threads: 1

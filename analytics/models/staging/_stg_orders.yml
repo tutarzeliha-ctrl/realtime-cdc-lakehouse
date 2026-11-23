@@ -1,0 +1,22 @@
+models:
+  - name: stg_orders
+    description: Typed and renamed orders; one row per order (current state).
+    columns:
+      - name: order_id
+        data_tests:
+          - unique
+          - not_null
+      - name: source_status
+        description: Raw status from PostgreSQL, upper-cased.
+        data_tests:
+          # Data contract: warn when the source starts sending a status we have not mapped yet.
+          - accepted_values:
+              arguments:
+                values: ["CREATED", "PAID", "DELETED"]
+              config:
+                severity: warn
+      - name: order_status
+        description: Business status (pending / successful / cancelled).
+      - name: created_at_utc
+        data_tests:
+          - not_null

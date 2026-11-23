@@ -1,0 +1,27 @@
+models:
+  - name: fct_orders
+    description: >
+      One row per order with its current business status. Answers: how many orders are
+      successful, pending or cancelled, and the value of successful orders.
+    columns:
+      - name: order_id
+        data_tests:
+          - unique
+          - not_null
+      - name: order_status
+        description: pending = CREATED, successful = PAID, cancelled = deleted in the source.
+        data_tests:
+          - not_null
+          # A status that is not mapped must stop the build instead of being published as 'unknown'.
+          - accepted_values:
+              arguments:
+                values: ["pending", "successful", "cancelled"]
+      - name: order_amount
+        data_tests:
+          - not_null
+      - name: successful_amount
+        description: order_amount for successful orders, otherwise 0.
+      - name: order_date
+        description: UTC date the order was created.
+        data_tests:
+          - not_null
