@@ -1,0 +1,16 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local secrets
+.env
+
+# Generated local data
+*.duckdb
+*.duckdb.wal
+*.parquet
+*.parquet.tmp
+data/
