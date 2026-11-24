@@ -1,0 +1,12 @@
+snapshots:
+  - name: orders_status_history
+    description: >
+      One row per version of an order (SCD Type 2). A new version is recorded when the
+      order's last change event time (Debezium ts_ms) moves forward. Only states that
+      exist when `dbt snapshot` runs are captured: if an order changes twice between two
+      runs, only the second change is recorded.
+    relation: ref('stg_orders')
+    config:
+      unique_key: order_id
+      strategy: timestamp
+      updated_at: last_changed_at_utc

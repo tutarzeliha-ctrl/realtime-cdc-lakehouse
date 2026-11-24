@@ -4,7 +4,9 @@
 
 Project 1 — Real-Time CDC Lakehouse v1.0 (released).
 
-Project 2 — Order Analytics (dbt), milestone 1: `stg_orders` and `fct_orders` (one row per order, current state) on top of the Parquet snapshot. `dbt build` passes on the bundled sample data; run against the live snapshot not yet done.
+Project 2 — Order Analytics (dbt):
+- Milestone 1 (done): `stg_orders` and `fct_orders` (one row per order, current state). `dbt build` passes on the sample data and on the live snapshot on Windows (13/13).
+- Milestone 2 (in progress): `orders_status_history` snapshot and `fct_order_status_daily` (one row per order per day). Tested with a three-day simulated scenario (20/20 per run); not yet run on Windows.
 
 ## Verified behaviour (evidence: docs/VERIFICATION.md)
 
@@ -29,4 +31,4 @@ See the "Known limitations" section in README.md.
 
 ## Next step
 
-Run `dbt build` against the live `orders_snapshot.parquet` on Windows, then milestone 2: capture daily order status with a dbt snapshot.
+Run milestone 2 on Windows against the live snapshot, then record a change on a later day and confirm the daily table shows both days.

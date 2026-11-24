@@ -1,0 +1,18 @@
+models:
+  - name: fct_order_status_daily
+    description: >
+      One row per order per day with the status at the end of the day (UTC). Answers
+      questions such as "how many orders were pending at the end of 20 November?".
+      History starts with the first `dbt snapshot` run; earlier days are not available.
+    columns:
+      - name: status_date
+        data_tests:
+          - not_null
+      - name: order_id
+        data_tests:
+          - not_null
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["pending", "successful", "cancelled"]

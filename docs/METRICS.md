@@ -26,6 +26,19 @@ Decisions:
 
 All counts describe the **current state** of each order. Example: an order created on 20 November and paid on 22 November counts as successful, with `order_date` = 20 November.
 
-## What these metrics cannot answer yet
+## Daily status (from `fct_order_status_daily`)
 
-"How many orders were pending at the end of 20 November?" The source keeps only the latest state of each order, so past states cannot be rebuilt. Daily history will be captured from the next milestone onward with a dbt snapshot.
+| Metric | Definition |
+|---|---|
+| Pending orders at end of day D | `count(*) where status_date = D and order_status = 'pending'` |
+| Successful orders at end of day D | same, with `order_status = 'successful'` |
+| Cancelled orders at end of day D | same, with `order_status = 'cancelled'` |
+
+"End of day" means 00:00 UTC of the next day. The status is the one in effect at that moment.
+
+## Limits of the daily history
+
+- The source keeps only the latest state of each order. History is recorded by `dbt snapshot` from its first run onward; earlier states cannot be rebuilt.
+- A new version starts at the time of the change event (Debezium `ts_ms`), not at the time `dbt snapshot` ran.
+- If an order changes more than once between two runs, only the last change is recorded. Example: CREATED → PAID → DELETED between two runs is recorded as CREATED → DELETED.
+- An order appears in the daily table from the day of its first recorded version.
