@@ -103,8 +103,31 @@ Committed Kafka offset dbserver1.public.orders[0]->1 (last_applied_offset=0) and
 
 The seed row from `init.sql` reached DuckDB through Debezium's initial snapshot.
 
+## 7. Analytics layer (dbt)
+
+Run on Windows from `analytics/`, in its own virtual environment (`dbt-core 1.12.7`, `dbt-duckdb 1.11.1`, `duckdb 2.0.1`).
+
+```text
+dbt build --vars "{orders_snapshot_path: sample_data/orders_snapshot_sample.parquet}"
+Done. PASS=13 WARN=0 ERROR=0 SKIP=0     (milestone 1: stg_orders, fct_orders)
+
+dbt build                               (live orders_snapshot.parquet)
+Done. PASS=13 WARN=0 ERROR=0 SKIP=0     (milestone 1)
+Done. PASS=20 WARN=0 ERROR=0 SKIP=0     (milestone 2: + snapshot and fct_order_status_daily)
+```
+
+Current state from `fct_orders` on the live data: 4 cancelled, 1 pending, 1 successful. These are the test orders created during the verification runs above, not customer data. On 23 and 24 November, `fct_order_status_daily` shows the same counts, which is what `assert_daily_status_matches_current_state` checks.
+
+Checked in a separate environment before the Windows run:
+
+- Three simulated daily runs (20, 21, 22 November) give the expected end-of-day status for each order.
+- Running `dbt build` twice with unchanged data adds no rows to the snapshot history.
+- An unmapped source status (`SHIPPED`) raises a warning in staging and fails the `fct_orders` build.
+- Changing a history row by hand makes `assert_daily_status_matches_current_state` fail.
+
 ## Not verified
 
 - A Parquet export failure in the live system (covered only by a unit test).
 - Multiple partitions or multiple consumer instances.
 - Behaviour after a power loss or a Docker volume reset.
+- Daily history across several real days: so far one snapshot run on the live data; the multi-day logic is tested only with simulated data.

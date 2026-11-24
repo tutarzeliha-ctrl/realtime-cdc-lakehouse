@@ -70,7 +70,12 @@ realtime-cdc-lakehouse/
 
 ## Analytics layer
 
-The `analytics/` folder contains a dbt project (dbt-duckdb) that reads `orders_snapshot.parquet` and builds `fct_orders`: one row per order with its business status (pending, successful, cancelled). It has its own virtual environment and its own DuckDB file, so it can run while the consumer is running. Setup and tests: [analytics/README.md](analytics/README.md).
+The `analytics/` folder contains a dbt project (dbt-duckdb) that reads `orders_snapshot.parquet` and builds:
+
+- `fct_orders`: one row per order with its current business status (pending, successful, cancelled)
+- `fct_order_status_daily`: one row per order per day with the status at the end of the day, recorded with a dbt snapshot
+
+ It has its own virtual environment and its own DuckDB file, so it can run while the consumer is running. Setup and tests: [analytics/README.md](analytics/README.md).
 
 ## Requirements
 
