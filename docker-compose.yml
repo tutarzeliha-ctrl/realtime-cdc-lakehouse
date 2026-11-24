@@ -84,9 +84,44 @@ services:
       timeout: 5s
       retries: 15
 
+  # Scheduler and monitoring for the pipeline (see orchestration/README.md).
+  # Local development setup: one container running `airflow standalone`.
+  airflow:
+    build:
+      context: .
+      dockerfile: orchestration/Dockerfile
+    command: standalone
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/project/orchestration/dags
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"   # no login; local use only
+      PYTHONPATH: /opt/project/orchestration/include
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CDC_CONSUMER_GROUP: lakehouse-cdc-consumer-v1
+      CDC_TOPIC: dbserver1.public.orders
+      SNAPSHOT_PATH: /opt/project/orders_snapshot.parquet
+      FRESHNESS_MAX_AGE_MINUTES: "10"
+      PG_HOST: postgres
+      PG_DB: app_db
+      PG_USER: app_user
+      PG_PASSWORD: change_me_local_password
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "False"
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}   # optional, read from .env
+    volumes:
+      - ./:/opt/project
+      - airflow_data:/opt/airflow
+
 volumes:
   zk_data:
   zk_log:
   kafka_data:
   pg_data:
   connect_data:
+  airflow_data:

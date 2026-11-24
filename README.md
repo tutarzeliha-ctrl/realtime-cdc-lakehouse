@@ -55,7 +55,7 @@ The scale is fixed at `3`, matching `NUMERIC(12, 3)` in `init.sql`.
 
 ```text
 realtime-cdc-lakehouse/
-├── docker-compose.yml          # Zookeeper, Kafka, PostgreSQL 16, Debezium Connect 2.4
+├── docker-compose.yml          # Zookeeper, Kafka, PostgreSQL 16, Debezium Connect 2.4, Airflow
 ├── init.sql                    # Source table, REPLICA IDENTITY FULL, one seed row
 ├── postgres-connector.json     # Debezium PostgreSQL connector configuration
 ├── lakehouse_consumer.py       # Consumer, decimal decoder, DuckDB state, Parquet export
@@ -63,8 +63,11 @@ realtime-cdc-lakehouse/
 ├── check_kafka.py              # Debug helper: prints the first 10 topic messages
 ├── requirements.txt
 ├── analytics/                  # dbt project on top of the Parquet snapshot (see analytics/README.md)
+├── orchestration/              # Airflow DAGs and health checks (see orchestration/README.md)
+├── .env.example                # Optional Slack webhook for alerts
 ├── docs/VERIFICATION.md        # Live verification record
 ├── docs/METRICS.md             # Business definitions for order status and metrics
+├── docs/RUNBOOK.md             # What to do when an Airflow check fails
 └── PROJECT_STATUS.md
 ```
 
@@ -76,6 +79,16 @@ The `analytics/` folder contains a dbt project (dbt-duckdb) that reads `orders_s
 - `fct_order_status_daily`: one row per order per day with the status at the end of the day, recorded with a dbt snapshot
 
  It has its own virtual environment and its own DuckDB file, so it can run while the consumer is running. Setup and tests: [analytics/README.md](analytics/README.md).
+
+## Orchestration and monitoring
+
+The `orchestration/` folder adds Airflow (one container, local development setup):
+
+- `cdc_freshness_check` runs every 5 minutes and fails when the consumer has stopped: unprocessed messages in Kafka and no snapshot published for 10 minutes. A quiet period without orders does not trigger it.
+- `daily_analytics` runs once a day: freshness gate → `dbt build` → reconciliation of PostgreSQL with the snapshot. When the data is stale, dbt does not run.
+- Failures are logged and, optionally, sent to Slack. [docs/RUNBOOK.md](docs/RUNBOOK.md) lists what to do for each alert.
+
+Setup and design: [orchestration/README.md](orchestration/README.md).
 
 ## Requirements
 

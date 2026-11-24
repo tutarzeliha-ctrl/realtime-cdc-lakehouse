@@ -125,6 +125,25 @@ Checked in a separate environment before the Windows run:
 - An unmapped source status (`SHIPPED`) raises a warning in staging and fails the `fct_orders` build.
 - Changing a history row by hand makes `assert_daily_status_matches_current_state` fail.
 
+## 8. Orchestration (Airflow) — checked before the Windows run
+
+Checked in a separate Linux environment with Airflow 3.4.0, without Docker, Kafka or PostgreSQL. Kafka lag and PostgreSQL totals were replaced by fixed values; dbt ran for real on the sample data.
+
+```text
+pytest orchestration/tests   (Airflow 3.4.0, duckdb 2.0.1)       17 passed
+pytest orchestration/tests   (consumer venv, duckdb 0.10.0)      14 passed, 1 skipped (DAG tests need Airflow)
+```
+
+`daily_analytics` run with `dag.test()`:
+
+| Scenario | freshness_gate | dbt_build | reconcile_source_with_snapshot |
+|---|---|---|---|
+| Lag 340, snapshot 2 days old | failed (alert logged) | upstream_failed (did not run) | upstream_failed |
+| Lag 0 | success | success (PASS=20) | success: 4 orders, total 276.900 |
+| One more order in PostgreSQL | success | success | failed: row count 5 vs 4, amount 296.890 vs 276.900 (alert logged) |
+
+Not yet verified: the Docker image build, the DAGs against the live Kafka and PostgreSQL, and the Slack message.
+
 ## Not verified
 
 - A Parquet export failure in the live system (covered only by a unit test).

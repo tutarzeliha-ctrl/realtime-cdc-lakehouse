@@ -4,6 +4,7 @@
 
 - **v1.0** — CDC layer: PostgreSQL → Debezium → Kafka → Python consumer → DuckDB + Parquet.
 - **v1.1** — Analytics layer (`analytics/`): dbt models on top of the Parquet snapshot.
+- **v1.2 (in progress)** — Orchestration and monitoring (`orchestration/`): Airflow, freshness check, source reconciliation, alerts.
 
 ## Current state
 
@@ -24,6 +25,9 @@ Analytics layer:
 - On the last day, `fct_order_status_daily` agrees with `fct_orders`.
 - Daily logic tested with a three-day simulated scenario; reruns with unchanged data add no history.
 
+Orchestration layer (not yet run on Windows):
+- Check logic and DAG structure covered by tests; three `daily_analytics` scenarios (stale, fresh, source mismatch) behave as designed in a test environment.
+
 ## Decisions
 
 - Active files: `lakehouse_consumer.py`, `postgres-connector.json`; older consumer and connector files removed.
@@ -33,6 +37,8 @@ Analytics layer:
 - dbt reads the Parquet snapshot (not `lakehouse.duckdb`) and writes to its own `analytics.duckdb`, so both can run at the same time.
 - Business status: CREATED → pending, PAID → successful, deleted → cancelled (see docs/METRICS.md).
 - Daily history uses a dbt snapshot with the `timestamp` strategy on the change event time.
+- Stale data = consumer lag > 0 AND Parquet snapshot older than 10 minutes, so quiet periods do not raise alerts.
+- Airflow runs dbt in a separate virtual environment; alerts go to the log and, if configured, to Slack.
 
 ## Known limitations
 
@@ -40,4 +46,4 @@ See "Known limitations" in README.md and analytics/README.md. The main ones: one
 
 ## Next step
 
-Schedule `dbt build` daily and add freshness checks and alerts (pipeline operations).
+Build the Airflow container on Windows and run the live checks: stop the consumer, add an order, see the freshness alert; restart and see it recover.
