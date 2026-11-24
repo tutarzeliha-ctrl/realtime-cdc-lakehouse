@@ -84,8 +84,8 @@ The `analytics/` folder contains a dbt project (dbt-duckdb) that reads `orders_s
 
 The `orchestration/` folder adds Airflow (one container, local development setup):
 
-- `cdc_freshness_check` runs every 5 minutes and fails when the consumer has stopped: unprocessed messages in Kafka and no snapshot published for 10 minutes. A quiet period without orders does not trigger it.
-- `daily_analytics` runs once a day: freshness gate → `dbt build` → reconciliation of PostgreSQL with the snapshot. When the data is stale, dbt does not run.
+- `cdc_freshness_check` runs every 5 minutes. It fails when the consumer has stopped (unprocessed messages in Kafka and no snapshot published for 10 minutes) or when the Debezium connector is not running. A quiet period without orders does not trigger it.
+- `daily_analytics` runs once a day: connector and freshness gates → `dbt build` → reconciliation of PostgreSQL with the snapshot. When either gate fails, dbt does not run.
 - Failures are logged and, optionally, sent to Slack. [docs/RUNBOOK.md](docs/RUNBOOK.md) lists what to do for each alert.
 
 Setup and design: [orchestration/README.md](orchestration/README.md).

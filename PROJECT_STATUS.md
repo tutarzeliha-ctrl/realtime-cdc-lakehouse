@@ -4,7 +4,7 @@
 
 - **v1.0** — CDC layer: PostgreSQL → Debezium → Kafka → Python consumer → DuckDB + Parquet.
 - **v1.1** — Analytics layer (`analytics/`): dbt models on top of the Parquet snapshot.
-- **v1.2 (in progress)** — Orchestration and monitoring (`orchestration/`): Airflow, freshness check, source reconciliation, alerts.
+- **v1.2** — Orchestration and monitoring (`orchestration/`): Airflow, freshness and connector checks, source reconciliation, alerts.
 
 ## Current state
 
@@ -25,8 +25,10 @@ Analytics layer:
 - On the last day, `fct_order_status_daily` agrees with `fct_orders`.
 - Daily logic tested with a three-day simulated scenario; reruns with unchanged data add no history.
 
-Orchestration layer (not yet run on Windows):
-- Check logic and DAG structure covered by tests; three `daily_analytics` scenarios (stale, fresh, source mismatch) behave as designed in a test environment.
+Orchestration layer (live on Windows, Airflow in Docker):
+- Quiet period stays green; a stopped consumer with a pending order turns the freshness check red, and it recovers by itself once the consumer catches up.
+- `daily_analytics` passes end to end; PostgreSQL and the snapshot agree (2 orders, 175.000).
+- Live test found a blind spot (stopped Debezium looks healthy); a connector check was added and verified live (Connect stopped → red, started → green).
 
 ## Decisions
 
@@ -38,7 +40,8 @@ Orchestration layer (not yet run on Windows):
 - Business status: CREATED → pending, PAID → successful, deleted → cancelled (see docs/METRICS.md).
 - Daily history uses a dbt snapshot with the `timestamp` strategy on the change event time.
 - Stale data = consumer lag > 0 AND Parquet snapshot older than 10 minutes, so quiet periods do not raise alerts.
-- Airflow runs dbt in a separate virtual environment; alerts go to the log and, if configured, to Slack.
+- Airflow runs dbt in a separate virtual environment, with its own target folder and no partial parsing; alerts go to the log and, if configured, to Slack.
+- A stopped Debezium connector is a failure in its own right, checked through the Kafka Connect REST API.
 
 ## Known limitations
 
@@ -46,4 +49,4 @@ See "Known limitations" in README.md and analytics/README.md. The main ones: one
 
 ## Next step
 
-Build the Airflow container on Windows and run the live checks: stop the consumer, add an order, see the freshness alert; restart and see it recover.
+Decide on the next layer of the roadmap; candidates: dead-letter handling for poison messages, or replication slot lag monitoring.

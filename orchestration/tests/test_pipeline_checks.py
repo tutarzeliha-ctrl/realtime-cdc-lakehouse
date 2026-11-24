@@ -121,3 +121,34 @@ def test_alert_with_webhook_posts_message(monkeypatch):
     monkeypatch.setattr(alerts.urllib.request, "urlopen", lambda req, timeout: sent.append(req.data))
     alerts.notify_failure({"task_instance": None, "exception": "Stale data"})
     assert sent and b"Stale data" in sent[0]
+
+
+# --- Debezium connector ----------------------------------------------------
+
+RUNNING = {"name": "orders-cdc-connector", "connector": {"state": "RUNNING"}, "tasks": [{"id": 0, "state": "RUNNING"}]}
+
+
+def test_running_connector_has_no_problems():
+    assert checks.evaluate_connector_status(RUNNING) == []
+
+
+def test_unreachable_connect_is_reported():
+    # What happened in the live test: the connect container had stopped, lag stayed 0.
+    problems = checks.evaluate_connector_status(None)
+    assert problems and "did not respond" in problems[0]
+
+
+def test_failed_task_is_reported_with_first_trace_line():
+    status = {"name": "orders-cdc-connector", "connector": {"state": "RUNNING"},
+              "tasks": [{"id": 0, "state": "FAILED", "trace": "org.apache.kafka.connect.errors.ConnectException: slot lost\n\tat ..."}]}
+    problems = checks.evaluate_connector_status(status)
+    assert problems == ["Task 0 is FAILED: org.apache.kafka.connect.errors.ConnectException: slot lost"]
+
+
+def test_paused_connector_and_missing_tasks_are_reported():
+    status = {"name": "orders-cdc-connector", "connector": {"state": "PAUSED"}, "tasks": []}
+    assert len(checks.evaluate_connector_status(status)) == 2
+
+
+def test_fetch_connector_status_returns_none_when_connect_is_down():
+    assert checks.fetch_connector_status("http://127.0.0.1:9", "orders-cdc-connector", timeout=1) is None

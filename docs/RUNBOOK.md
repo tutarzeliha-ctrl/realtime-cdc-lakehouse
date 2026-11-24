@@ -13,6 +13,15 @@ From `cdc_freshness_check` or `daily_analytics.freshness_gate`.
 3. Watch the lag go down: the next `cdc_freshness_check` run should succeed.
 4. If `daily_analytics` was blocked, trigger it again in Airflow after the consumer has caught up.
 
+## `Debezium is not capturing changes: …`
+
+From `cdc_freshness_check.debezium_connector_is_running` or `daily_analytics.connector_gate`.
+
+1. `Kafka Connect did not respond` → check `docker compose ps`. If `connect` is missing or exited, start it: `docker compose up -d connect`.
+2. `Connector … is PAUSED / FAILED` or `Task 0 is FAILED: …` → read the first trace line in the message, then `curl.exe -s http://localhost:8083/connectors/orders-cdc-connector/status` for the full trace. After fixing the cause, restart the task: `curl.exe -s -X POST http://localhost:8083/connectors/orders-cdc-connector/tasks/0/restart`.
+3. `NOT REGISTERED` → register the connector (README, "Setup").
+4. Changes made while Debezium was down are not lost: PostgreSQL keeps them in the replication slot, and Debezium reads them when it restarts. Watch the consumer apply them, then check that the next `cdc_freshness_check` run passes.
+
 ## `Row count differs …` / `Total amount differs …`
 
 From `daily_analytics.reconcile_source_with_snapshot`, after two retries.

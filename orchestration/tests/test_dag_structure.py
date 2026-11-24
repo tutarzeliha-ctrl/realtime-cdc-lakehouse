@@ -25,8 +25,13 @@ def test_dags_load_without_errors(dagbag):
 
 def test_daily_analytics_runs_dbt_only_after_freshness_gate(dagbag):
     dag = dagbag.dags["daily_analytics"]
-    assert dag.get_task("dbt_build").upstream_task_ids == {"freshness_gate"}
+    assert dag.get_task("dbt_build").upstream_task_ids == {"connector_gate", "freshness_gate"}
     assert dag.get_task("reconcile_source_with_snapshot").upstream_task_ids == {"dbt_build"}
+
+
+def test_freshness_check_watches_consumer_and_connector(dagbag):
+    dag = dagbag.dags["cdc_freshness_check"]
+    assert set(dag.task_ids) == {"consumer_is_up_to_date", "debezium_connector_is_running"}
 
 
 def test_freshness_check_runs_every_five_minutes(dagbag):

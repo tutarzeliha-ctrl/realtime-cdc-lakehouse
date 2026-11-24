@@ -15,14 +15,20 @@ The data is **stale** when both are true:
 
 A quiet period without new orders has lag 0 and is never stale. A burst that is still being processed has a recent snapshot and is not stale either.
 
+## The connector check
+
+The freshness rule only sees changes that reached Kafka. If Debezium stops, nothing arrives, lag stays 0 and the data looks fresh. A second check reads the Kafka Connect REST API (`/connectors/orders-cdc-connector/status`) and fails when Connect does not respond, or when the connector or one of its tasks is not `RUNNING`.
+
+This gap was found in the live test: the `connect` container had stopped, an inserted order never reached Kafka, and the freshness check stayed green.
+
 ## DAGs
 
 | DAG | Schedule | Tasks |
 |---|---|---|
-| `cdc_freshness_check` | every 5 minutes | `consumer_is_up_to_date` |
-| `daily_analytics` | 06:00 UTC daily | `freshness_gate` → `dbt_build` → `reconcile_source_with_snapshot` |
+| `cdc_freshness_check` | every 5 minutes | `consumer_is_up_to_date`, `debezium_connector_is_running` |
+| `daily_analytics` | 06:00 UTC daily | `connector_gate` + `freshness_gate` → `dbt_build` → `reconcile_source_with_snapshot` |
 
-- If `freshness_gate` fails, `dbt_build` does not run, so no daily history is recorded from stale data.
+- If either gate fails, `dbt_build` does not run, so no daily history is recorded from stale data.
 - `reconcile_source_with_snapshot` compares the number and total amount of orders in PostgreSQL with the non-deleted rows in the snapshot (PostgreSQL removes deleted orders; the snapshot keeps them as `is_deleted = TRUE`). It retries twice, because an order written between the two reads causes a short-lived difference.
 
 ## Alerts
@@ -53,4 +59,5 @@ The check logic runs without Airflow. The DAG structure tests are skipped when A
 
 - `airflow standalone` with SQLite is a local development setup, not a production deployment.
 - Tested with one partition and one consumer.
-- The freshness check does not watch Debezium itself: if the connector stops, no messages arrive and lag stays 0. Checking the connector status is a possible next step.
+- The connector check sees whether Debezium is running, not whether PostgreSQL's replication slot is falling behind. Slot lag is not monitored.
+- dbt runs in the container with its own target folder and without partial parsing, because the `analytics/` folder is shared with dbt runs on Windows (see docs/VERIFICATION.md, section 8).

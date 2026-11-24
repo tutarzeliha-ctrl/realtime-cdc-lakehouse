@@ -125,28 +125,48 @@ Checked in a separate environment before the Windows run:
 - An unmapped source status (`SHIPPED`) raises a warning in staging and fails the `fct_orders` build.
 - Changing a history row by hand makes `assert_daily_status_matches_current_state` fail.
 
-## 8. Orchestration (Airflow) — checked before the Windows run
+## 8. Orchestration (Airflow)
 
-Checked in a separate Linux environment with Airflow 3.4.0, without Docker, Kafka or PostgreSQL. Kafka lag and PostgreSQL totals were replaced by fixed values; dbt ran for real on the sample data.
+Airflow 3.4.0 in Docker on Windows (`docker compose up -d --build airflow`), consumer on the host.
+
+**Tests:** `pytest orchestration/tests` passes in the Airflow environment (23 passed); in the consumer venv the DAG structure test is skipped (no Airflow).
+
+**Quiet period (no new orders, snapshot several hours old):** `cdc_freshness_check` ran every 5 minutes and stayed green: lag 0 means up to date, however old the snapshot is.
+
+**First `daily_analytics` runs failed in `dbt_build`:**
 
 ```text
-pytest orchestration/tests   (Airflow 3.4.0, duckdb 2.0.1)       17 passed
-pytest orchestration/tests   (consumer venv, duckdb 0.10.0)      14 passed, 1 skipped (DAG tests need Airflow)
+KeyError: 'dbt_duckdb://macros/adapters.sql'      (dbt exit code 2: dbt could not start)
 ```
 
-`daily_analytics` run with `dag.test()`:
+Cause: `analytics/target/partial_parse.msgpack` had been written by dbt on Windows; the Linux container shares the folder and reused it. Fix: the container runs `dbt build --target-path /opt/airflow/dbt/target --log-path /opt/airflow/dbt/logs --no-partial-parse`. The next run passed:
 
-| Scenario | freshness_gate | dbt_build | reconcile_source_with_snapshot |
-|---|---|---|---|
-| Lag 340, snapshot 2 days old | failed (alert logged) | upstream_failed (did not run) | upstream_failed |
-| Lag 0 | success | success (PASS=20) | success: 4 orders, total 276.900 |
-| One more order in PostgreSQL | success | success | failed: row count 5 vs 4, amount 296.890 vs 276.900 (alert logged) |
+```text
+freshness_gate   success
+dbt_build        success   (11.1 s)
+reconcile_source_with_snapshot   success
+PostgreSQL and snapshot agree: 2 orders, total 175.000.
+```
 
-Not yet verified: the Docker image build, the DAGs against the live Kafka and PostgreSQL, and the Slack message.
+The two live orders are 1 (25.500) and 204 (149.500); deleted orders are excluded on both sides.
+
+**Stopped consumer:**
+
+1. Consumer stopped; order 301 inserted (`INSERT 0 1`).
+2. `cdc_freshness_check` stayed **green**. Diagnosis: `docker compose ps` did not list `connect`, the connector status endpoint did not respond, and the consumer group showed `LOG-END-OFFSET 25, LAG 0`. The change had never reached Kafka. The `connect` container had stopped, most likely when Kafka was recreated while Airflow was being added (not confirmed).
+3. `docker compose up -d connect` → connector and task `RUNNING`; Debezium read order 301 from the replication slot (`LAG 1`).
+4. `cdc_freshness_check` at 23:33 and 23:35: **failed**, alert logged.
+5. Consumer started: `Committed Kafka offset dbserver1.public.orders[0]->26 (last_applied_offset=25)` at 23:37.
+6. `cdc_freshness_check` at 23:38: **success**, without any manual reset.
+
+**Connector check added after step 2.** Checked in a test environment with Airflow 3.4.0: with Connect unreachable, `consumer_is_up_to_date` succeeds and `debezium_connector_is_running` fails; with the connector running, both succeed.
+
+**Connector check, live:** `docker compose stop connect` → `cdc_freshness_check` at 23:54: `consumer_is_up_to_date` success, `debezium_connector_is_running` **failed**. `docker compose start connect` → run at 23:55: both **success**.
 
 ## Not verified
 
 - A Parquet export failure in the live system (covered only by a unit test).
 - Multiple partitions or multiple consumer instances.
 - Behaviour after a power loss or a Docker volume reset.
+- Slack delivery of alerts (only the log path has been exercised).
 - Daily history across several real days: so far one snapshot run on the live data; the multi-day logic is tested only with simulated data.

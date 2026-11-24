@@ -1,7 +1,7 @@
 """Airflow DAGs that operate the CDC pipeline.
 
-cdc_freshness_check  every 5 minutes: fails when the consumer has stopped.
-daily_analytics      once a day: freshness gate -> dbt build -> source reconciliation.
+cdc_freshness_check  every 5 minutes: fails when Debezium or the consumer has stopped.
+daily_analytics      once a day: connector + freshness gates -> dbt build -> source reconciliation.
 """
 
 from __future__ import annotations
@@ -17,6 +17,8 @@ from alerts import notify_failure
 import pipeline_checks as checks
 
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
+CONNECT_URL = os.environ.get("CONNECT_URL", "http://connect:8083")
+CONNECTOR_NAME = os.environ.get("CONNECTOR_NAME", "orders-cdc-connector")
 CONSUMER_GROUP = os.environ.get("CDC_CONSUMER_GROUP", "lakehouse-cdc-consumer-v1")
 CDC_TOPIC = os.environ.get("CDC_TOPIC", "dbserver1.public.orders")
 SNAPSHOT_PATH = os.environ.get("SNAPSHOT_PATH", "/opt/project/orders_snapshot.parquet")
@@ -44,6 +46,14 @@ def check_freshness() -> dict:
     return {"lag": result.lag, "snapshot_age_seconds": result.snapshot_age_seconds}
 
 
+def check_connector() -> str:
+    problems = checks.evaluate_connector_status(checks.fetch_connector_status(CONNECT_URL, CONNECTOR_NAME))
+    if problems:
+        raise AirflowFailException("Debezium is not capturing changes: " + " ".join(problems))
+    print(f"Connector {CONNECTOR_NAME!r} and its tasks are RUNNING.")
+    return "RUNNING"
+
+
 @dag(
     dag_id="cdc_freshness_check",
     schedule="*/5 * * * *",
@@ -59,7 +69,13 @@ def cdc_freshness_check():
     def consumer_is_up_to_date() -> dict:
         return check_freshness()
 
+    @task
+    def debezium_connector_is_running() -> str:
+        # Without this check a stopped connector looks healthy: no messages arrive, lag stays 0.
+        return check_connector()
+
     consumer_is_up_to_date()
+    debezium_connector_is_running()
 
 
 @dag(
@@ -72,6 +88,10 @@ def cdc_freshness_check():
     tags=["dbt", "analytics"],
 )
 def daily_analytics():
+
+    @task
+    def connector_gate() -> str:
+        return check_connector()
 
     @task
     def freshness_gate() -> dict:
@@ -103,7 +123,7 @@ def daily_analytics():
         print(f"PostgreSQL and snapshot agree: {source.row_count} orders, total {source.total_amount}.")
         return {"orders": source.row_count, "total_amount": str(source.total_amount)}
 
-    freshness_gate() >> dbt_build >> reconcile_source_with_snapshot()
+    [connector_gate(), freshness_gate()] >> dbt_build >> reconcile_source_with_snapshot()
 
 
 cdc_freshness_check()

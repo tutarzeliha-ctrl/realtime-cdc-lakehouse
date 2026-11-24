@@ -109,6 +109,56 @@ def compute_lag(end_offsets: dict, beginning_offsets: dict, committed_offsets: d
 
 
 # ---------------------------------------------------------------------------
+# Debezium connector
+# ---------------------------------------------------------------------------
+
+def evaluate_connector_status(status: Optional[dict]) -> list[str]:
+    """Check a Kafka Connect status response for one connector.
+
+    The freshness rule only sees changes that reached Kafka: if Debezium stops,
+    nothing arrives, lag stays 0 and the data looks fresh. This check covers that gap.
+    Returns a list of problems; an empty list means the connector and all tasks run.
+    """
+    if status is None:
+        return ["Kafka Connect did not respond: the connect service is probably down."]
+
+    problems = []
+    connector_state = (status.get("connector") or {}).get("state", "UNKNOWN")
+    if connector_state != "RUNNING":
+        problems.append(f"Connector {status.get('name', '?')!r} is {connector_state}.")
+
+    tasks = status.get("tasks") or []
+    if not tasks:
+        problems.append("Connector has no tasks: no changes are being captured.")
+    for task in tasks:
+        if task.get("state") != "RUNNING":
+            reason = (task.get("trace") or "").strip().splitlines()[:1]
+            problems.append(
+                f"Task {task.get('id')} is {task.get('state', 'UNKNOWN')}"
+                + (f": {reason[0]}" if reason else ".")
+            )
+    return problems
+
+
+def fetch_connector_status(connect_url: str, connector: str, timeout: float = 10) -> Optional[dict]:
+    """Status of a connector from the Kafka Connect REST API, or None if Connect is unreachable."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    url = f"{connect_url.rstrip('/')}/connectors/{connector}/status"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return {"name": connector, "connector": {"state": "NOT REGISTERED"}, "tasks": []}
+        raise
+    except (urllib.error.URLError, TimeoutError, ConnectionError):
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Source reconciliation
 # ---------------------------------------------------------------------------
 

@@ -104,6 +104,8 @@ services:
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"   # no login; local use only
       PYTHONPATH: /opt/project/orchestration/include
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_URL: http://connect:8083
+      CONNECTOR_NAME: orders-cdc-connector
       CDC_CONSUMER_GROUP: lakehouse-cdc-consumer-v1
       CDC_TOPIC: dbserver1.public.orders
       SNAPSHOT_PATH: /opt/project/orders_snapshot.parquet
