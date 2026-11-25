@@ -208,10 +208,25 @@ dbt build                                                                    -> 
 
 **README changes from this run:** wait note after connector registration; reminder to activate `venv` in every new terminal; separate dbt target for sample data.
 
+## 10. Continuous integration (v1.3)
+
+Date: 2026-11-26. Workflow `.github/workflows/ci.yml` on GitHub Actions (Ubuntu, Python 3.12), two jobs: `pytest` and `dbt build` on the sample data.
+
+| Run | Commit | Change | Consumer tests | dbt build |
+|---|---|---|---|---|
+| CI #1 | `87a3788` | Workflow added | success | success |
+| CI #2 | `6727214` | One expected value changed on purpose (`-2658.824` → `-2658.825`) | **failed**: 1 failed, 31 passed, 1 skipped | success |
+| CI #3 | `c6d8201` | `git revert` of CI #2 | success | success |
+
+CI #2 reported the exact assertion: `assert Decimal('-2658.824') == Decimal('-2658.825')`. The check can fail, and a failure in one job does not hide the result of the other.
+
+Before the first push, both commands were also run in a separate Linux environment with Python 3.12 (32 passed, 1 skipped; dbt PASS=20). With Python 3.13, `pyarrow 15.0.0` could not be installed, so CI is pinned to 3.12.
+
 ## Not verified
 
 - A Parquet export failure in the live system (covered only by a unit test).
 - Multiple partitions or multiple consumer instances.
 - Behaviour after a power loss or a Docker volume reset.
 - Slack delivery of alerts (only the log path has been exercised).
+- The live pipeline and the Airflow DAGs in CI (they need the Docker Compose stack; verified by hand).
 - Daily history across several real days: so far one snapshot run on the live data; the multi-day logic is tested only with simulated data.

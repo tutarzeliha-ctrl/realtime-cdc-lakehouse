@@ -51,10 +51,10 @@ See "Known limitations" in README.md and analytics/README.md. The main ones: one
 
 ## Roadmap
 
-- **v1.3 CI:** in progress. Acceptance: both jobs green on push; a deliberately broken test turns CI red, and the fix turns it green again.
+- **v1.3 CI:** done. Both jobs green on push; a deliberately broken test turned CI red (CI #2) and the revert turned it green (CI #3). See docs/VERIFICATION.md, section 10.
 - **v1.4:** dead-letter handling for poison messages.
 - **v1.5:** replication slot lag monitoring.
 
 ## Next step
 
-Push v1.3 and run the red/green check on GitHub Actions.
+v1.4: decide how the consumer handles a message it cannot decode or apply (dead-letter handling).
