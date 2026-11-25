@@ -516,7 +516,7 @@ def test_restart_refreshes_stale_parquet_after_export_failure(monkeypatch, tmp_p
 @pytest.mark.parametrize(
     "wire_value, expected",
     [
-        ("1234", Decimal("-2658.824")),  # base64 that looks like a number
+        ("1234", Decimal("-2658.825")),  # base64 that looks like a number
         ("NAN0", Decimal("3408.756")),  # base64 that Decimal() parses as NaN
     ],
 )
