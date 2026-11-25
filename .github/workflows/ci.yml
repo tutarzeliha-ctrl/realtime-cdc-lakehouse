@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  consumer-tests:
+    name: Consumer and check tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # pyarrow 15.0.0 has no wheels for Python 3.13; the project is tested on 3.12.
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      # Airflow is not installed here, so the DAG structure test is skipped.
+      - run: python -m pytest -v
+
+  dbt-sample-build:
+    name: dbt build on sample data
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: analytics
+    env:
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "False"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: analytics/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: dbt build (sample target)
+        run: |
+          dbt build --profiles-dir . --target sample --vars "{orders_snapshot_path: sample_data/orders_snapshot_sample.parquet}"

@@ -1,5 +1,7 @@
 # Realtime CDC Lakehouse (PostgreSQL → Debezium → Kafka → DuckDB → Parquet)
 
+[![CI](https://github.com/tutarzeliha-ctrl/realtime-cdc-lakehouse/actions/workflows/ci.yml/badge.svg)](https://github.com/tutarzeliha-ctrl/realtime-cdc-lakehouse/actions/workflows/ci.yml)
+
 A local Change Data Capture (CDC) pipeline on Windows and Docker Compose.
 Debezium captures `INSERT`, `UPDATE` and `DELETE` changes from a PostgreSQL `orders` table and publishes them to Kafka.
 A Python consumer applies each change to DuckDB in a local transaction, records the applied Kafka offset in the same transaction, and publishes a Parquet snapshot of the table.
@@ -89,6 +91,15 @@ The `orchestration/` folder adds Airflow (one container, local development setup
 - Failures are logged and, optionally, sent to Slack. [docs/RUNBOOK.md](docs/RUNBOOK.md) lists what to do for each alert.
 
 Setup and design: [orchestration/README.md](orchestration/README.md).
+
+## Continuous integration
+
+Every push to `main` and every pull request runs two jobs on GitHub Actions (Ubuntu, Python 3.12):
+
+- **Consumer and check tests:** `pytest` on the consumer and on the orchestration check functions.
+- **dbt build on sample data:** all models, the snapshot and the data tests on `analytics/sample_data`.
+
+Not covered by CI: the live pipeline (PostgreSQL, Debezium, Kafka) and the Airflow DAGs, which need the Docker Compose stack. The Airflow DAG structure test is skipped because Airflow is not installed in CI. These parts are verified by hand; see [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
 ## Requirements
 

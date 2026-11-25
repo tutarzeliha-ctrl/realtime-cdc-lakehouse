@@ -5,6 +5,7 @@
 - **v1.0** — CDC layer: PostgreSQL → Debezium → Kafka → Python consumer → DuckDB + Parquet.
 - **v1.1** — Analytics layer (`analytics/`): dbt models on top of the Parquet snapshot.
 - **v1.2** — Orchestration and monitoring (`orchestration/`): Airflow, freshness and connector checks, source reconciliation, alerts.
+- **v1.3** — Continuous integration: GitHub Actions runs `pytest` and `dbt build` on sample data for every push and pull request.
 
 ## Current state
 
@@ -42,11 +43,18 @@ Orchestration layer (live on Windows, Airflow in Docker):
 - Stale data = consumer lag > 0 AND Parquet snapshot older than 10 minutes, so quiet periods do not raise alerts.
 - Airflow runs dbt in a separate virtual environment, with its own target folder and no partial parsing; alerts go to the log and, if configured, to Slack.
 - A stopped Debezium connector is a failure in its own right, checked through the Kafka Connect REST API.
+- CI runs only what needs no Docker stack (unit tests, dbt on sample data); the live pipeline is verified by hand. CI is pinned to Python 3.12 because `pyarrow 15.0.0` has no wheels for 3.13.
 
 ## Known limitations
 
 See "Known limitations" in README.md and analytics/README.md. The main ones: one partition and one consumer; no dead-letter queue; daily history starts with the first snapshot run and depends on how often dbt runs.
 
+## Roadmap
+
+- **v1.3 CI:** in progress. Acceptance: both jobs green on push; a deliberately broken test turns CI red, and the fix turns it green again.
+- **v1.4:** dead-letter handling for poison messages.
+- **v1.5:** replication slot lag monitoring.
+
 ## Next step
 
-Decide on the next layer of the roadmap; candidates: dead-letter handling for poison messages, or replication slot lag monitoring.
+Push v1.3 and run the red/green check on GitHub Actions.
