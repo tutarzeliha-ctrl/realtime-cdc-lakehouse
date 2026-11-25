@@ -163,6 +163,51 @@ The two live orders are 1 (25.500) and 204 (149.500); deleted orders are exclude
 
 **Connector check, live:** `docker compose stop connect` → `cdc_freshness_check` at 23:54: `consumer_is_up_to_date` success, `debezium_connector_is_running` **failed**. `docker compose start connect` → run at 23:55: both **success**.
 
+## 9. Clean install of v1.2 from GitHub
+
+Date: 2026-11-25. The repository was cloned into `C:\cdc-clean-v12`, outside OneDrive, while the original project's containers were stopped. Docker Compose created new containers and empty volumes. Image layers were reused from the local Docker cache, so this does not test a first-time image download. Only the README steps were used.
+
+```text
+git clone https://github.com/tutarzeliha-ctrl/realtime-cdc-lakehouse.git cdc-clean-v12
+python -m venv venv; .\venv\Scripts\Activate.ps1; pip install -r requirements.txt
+docker compose up -d                 -> zookeeper, postgres, kafka healthy; connect, airflow started
+(connector registered)               -> connector RUNNING, "tasks":[] at first;
+                                        a few seconds later task 0 RUNNING
+pytest -v                            -> 32 passed, 1 skipped (Airflow DAG test: Airflow not installed in this venv)
+INSERT / UPDATE / DELETE order 201   -> INSERT 0 1, UPDATE 1, DELETE 1 (consumer not yet running)
+python .\lakehouse_consumer.py       -> joined group, caught up on the waiting messages
+orders : [(1, 25.500, 'CREATED', False), (201, 210.750, 'DELETED', True)]
+offsets: [('dbserver1.public.orders', 0, 3)]
+parquet: same rows as DuckDB
+```
+
+The changes were made while the consumer was stopped; it applied all four messages (seed row, insert, update, delete) once each after starting.
+
+**dbt, first attempt (failed):** the README ran the sample data and then the live data against the same `analytics.duckdb`.
+
+```text
+dbt build --vars "{orders_snapshot_path: sample_data/...}"   -> PASS=20 ERROR=0
+dbt build                                                     -> PASS=19 ERROR=1
+assert_daily_status_matches_current_state: 5 rows -> orders 101, 204, 206, 207, 208, current status None
+```
+
+Cause: the snapshot kept the sample orders as open versions; they do not exist in the live data. The test caught the mismatch. Fix: a separate `sample` target in `profiles.yml` writing to `analytics_sample.duckdb`, and the README now uses `dbt build --target sample` for the sample data. The contaminated file was renamed, not deleted.
+
+**dbt, after the fix:**
+
+```text
+dbt build --target sample --vars "{orders_snapshot_path: sample_data/...}"   -> PASS=20 ERROR=0
+dbt build                                                                    -> PASS=20 ERROR=0
+```
+
+**Airflow:** both DAGs switched on in the UI.
+
+- `cdc_freshness_check`: 3 runs, all success (consumer stopped, no unprocessed messages).
+- `daily_analytics`: scheduled run (06:00 UTC, started when the DAG was switched on) and a manual run; in both, `connector_gate`, `freshness_gate`, `dbt_build` and `reconcile_source_with_snapshot` succeeded.
+- Reconciliation log: `PostgreSQL and snapshot agree: 1 orders, total 25.500.` (order 201 is deleted and excluded on both sides).
+
+**README changes from this run:** wait note after connector registration; reminder to activate `venv` in every new terminal; separate dbt target for sample data.
+
 ## Not verified
 
 - A Parquet export failure in the live system (covered only by a unit test).

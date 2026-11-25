@@ -42,8 +42,8 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# With the bundled sample data (no Docker needed)
-dbt build --vars "{orders_snapshot_path: sample_data/orders_snapshot_sample.parquet}"
+# With the bundled sample data (no Docker needed); writes to analytics_sample.duckdb
+dbt build --target sample --vars "{orders_snapshot_path: sample_data/orders_snapshot_sample.parquet}"
 
 # With the live snapshot written by the consumer (../orders_snapshot.parquet)
 dbt build
@@ -51,9 +51,11 @@ dbt build
 
 `sample_data/orders_snapshot_sample.parquet` is a small hand-made file with the same schema as the consumer's export (7 orders). It is sample data, not output from a real run.
 
+The sample run uses its own database file (`--target sample`). If both runs wrote to `analytics.duckdb`, the snapshot would keep the sample orders as open versions and `assert_daily_status_matches_current_state` would fail on the live data.
+
 ## Known limitations
 
-- Daily history starts with the first `dbt snapshot` run and depends on how often dbt runs (see METRICS.md). Scheduling is manual for now.
+- Daily history starts with the first `dbt snapshot` run and depends on how often dbt runs (see METRICS.md). The `daily_analytics` Airflow DAG runs `dbt build` once a day (see orchestration/README.md).
 - Deleting `analytics.duckdb` deletes the recorded history; it cannot be rebuilt from the Parquet snapshot.
 - `dbt build` creates `fct_orders` before its tests run. If a test fails, the table already contains the new data; downstream models are skipped.
 - Tested with Python 3.12, `dbt-core 1.12.7`, `dbt-duckdb 1.11.1`, `duckdb 2.0.1`.

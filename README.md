@@ -114,7 +114,7 @@ curl.exe -s -X POST -H "Content-Type: application/json" --data-binary "@postgres
 curl.exe -s http://localhost:8083/connectors/orders-cdc-connector/status
 ```
 
-The status response should show `"state":"RUNNING"` for the connector and its task.
+The status response should show `"state":"RUNNING"` for the connector and its task. Right after registering, the task list can be empty (`"tasks":[]`) for a few seconds; run the status command again.
 
 The database password in `docker-compose.yml` and `postgres-connector.json` is a local-only development value. Do not reuse it elsewhere.
 
@@ -124,6 +124,8 @@ The database password in `docker-compose.yml` and `postgres-connector.json` is a
 pytest -v
 python .\lakehouse_consumer.py
 ```
+
+Each new terminal needs the virtual environment again (`.\venv\Scripts\Activate.ps1`). Without it, Python may load an older `kafka-python` from the system installation (see Troubleshooting).
 
 Stop the consumer with `Ctrl + C`. A `Fetch to node 1 failed: Cancelled` log line during shutdown is expected: an in-flight fetch is cancelled, followed by `shutting down cleanly`.
 
@@ -175,7 +177,7 @@ This only works while the topic still holds the full history (Kafka's default re
 | Symptom | Cause | Action |
 |---|---|---|
 | `Binder Error: Referenced column "updated_at" not found`, retried every 3 s | `lakehouse.duckdb` was created by an older consumer version with a different schema | Rebuild the local state (section above) |
-| `ModuleNotFoundError: No module named 'kafka.vendor.six.moves'` | `kafka-python 2.0.2` is installed; it does not work on Python 3.12 | `pip install -r requirements.txt` (uses `kafka-python-ng`) |
+| `ModuleNotFoundError: No module named 'kafka.vendor.six.moves'` | `kafka-python 2.0.2` is installed, or the terminal is not using the project's virtual environment | Activate `venv`; if the error remains, `pip install -r requirements.txt` (uses `kafka-python-ng`) |
 | Inspection script cannot open `lakehouse.duckdb` | The consumer still holds the file | Stop the consumer first |
 | Consumer connects but receives nothing | Connector not registered or not running | Check the connector status endpoint |
 
